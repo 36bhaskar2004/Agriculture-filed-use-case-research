@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simdaa AgriCare AI | Disease Detection</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #28a745;
+            --secondary: #218838;
+            --light: #f8f9fa;
+            --dark: #343a40;
+        }
+        body {
+            background-color: #f5f5f5;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .card {
+            border-radius: 15px;
+            box-shadow: 0 6px 15px rgba(0,0,0,0.1);
+            border: none;
+        }
+        .upload-area {
+            border: 2px dashed #ced4da;
+            border-radius: 10px;
+            transition: all 0.3s;
+        }
+        .upload-area:hover {
+            border-color: var(--primary);
+        }
+        .disease-card {
+            transition: transform 0.3s;
+        }
+        .disease-card:hover {
+            transform: translateY(-5px);
+        }
+        .progress-bar {
+            background-color: var(--primary);
+        }
+        .weather-card {
+            background: linear-gradient(135deg, #6e8efb, #a777e3);
+            color: white;
+        }
+        /* Logo Styling */
+        .logo {
+            height: 40px;
+            width: auto;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+
+
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-success">
+        <div class="container d-flex align-items-center">
+            <a class="navbar-brand d-flex align-items-center" href="#">
+            <img src="{{ url_for('static', filename='Logo horizontal -1.png') }}" alt="Simdaa Logo" height="90"class="me-2">
+                <span>Simdaa AgriCare AI</span>
+            </a>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <div class="container py-5">
+        <div class="row">
+            <div class="col-lg-8 mx-auto text-center mb-5">
+                <h1 class="display-5 fw-bold">Plant Disease Detection</h1>
+                <p class="lead">Upload an image of your crop to detect diseases and get expert recommendations</p>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Disease Detection -->
+            <div class="col-lg-7 mb-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h3 class="card-title">
+                            <i class="fas fa-seedling text-success me-2"></i>Disease Detection
+                        </h3>
+                        
+                        <div class="upload-area p-5 text-center mb-4" id="uploadArea">
+                            <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                            <h5>Drag & Drop or Click to Upload</h5>
+                            <p class="text-muted">Supports JPG, PNG, GIF (Max 5MB)</p>
+                            <input type="file" id="fileInput" accept="image/*" class="d-none">
+                            <button class="btn btn-success mt-3" onclick="document.getElementById('fileInput').click()">
+                                Select Image
+                            </button>
+                        </div>
+                        
+                        <div id="imagePreviewContainer" class="text-center mb-4" style="display: none;">
+                            <img id="imagePreview" class="img-fluid rounded" style="max-height: 300px;">
+                        </div>
+                        
+                        <div id="resultsContainer" style="display: none;">
+                            <h4 class="mb-3">Detection Results</h4>
+                            <div id="predictionsList"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Weather & Recommendations -->
+            <div class="col-lg-5">
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h3 class="card-title">
+                            <i class="fas fa-cloud-sun text-info me-2"></i>Weather Forecast
+                        </h3>
+                        <form id="weatherForm" class="mb-3">
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="cityInput" placeholder="Enter city name">
+                                <button class="btn btn-primary" type="submit">
+                                    <i class="fas fa-search"></i>
+                                </button>
+                            </div>
+                        </form>
+                        
+                        <div id="weatherResult" style="display: none;">
+                            <div class="weather-card text-white p-4 rounded">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h4 id="weatherCity">City Name</h4>
+                                    <img id="weatherIcon" src="" alt="Weather icon" style="width: 50px;">
+                                </div>
+                                <div class="d-flex align-items-center">
+                                    <h1 class="display-4 mb-0" id="weatherTemp">24°C</h1>
+                                    <div class="ms-3">
+                                        <div id="weatherDesc">Sunny</div>
+                                        <div>Humidity: <span id="weatherHumidity">65</span>%</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-body">
+                        <h3 class="card-title">
+                            <i class="fas fa-lightbulb text-warning me-2"></i>Recommendations
+                        </h3>
+                        <div id="recommendationsContainer">
+                            <p class="text-muted">Upload a plant image to get specific recommendations</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JS Section -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const preview = document.getElementById('imagePreview');
+                preview.src = event.target.result;
+                document.getElementById('imagePreviewContainer').style.display = 'block';
+                analyzeImage(file);
+            };
+            reader.readAsDataURL(file);
+        });
+
+        async function analyzeImage(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            document.getElementById('resultsContainer').style.display = 'none';
+            document.getElementById('recommendationsContainer').innerHTML = `
+                <div class="text-center py-4">
+                    <div class="spinner-border text-success"></div>
+                    <p class="mt-2">Analyzing plant image...</p>
+                </div>
+            `;
+            
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                displayResults(data);
+            } catch (error) {
+                document.getElementById('recommendationsContainer').innerHTML = `
+                    <div class="alert alert-danger">Error: ${error.message}</div>
+                `;
+            }
+        }
+        
+        function displayResults(data) {
+            const predictionsList = document.getElementById('predictionsList');
+            predictionsList.innerHTML = '';
+            
+            data.predictions.forEach(pred => {
+                const confidencePercent = (pred.confidence * 100).toFixed(1);
+                
+                predictionsList.innerHTML += `
+                    <div class="card disease-card mb-3">
+                        <div class="card-body">
+                            <h5>${pred.name}</h5>
+                            <p class="text-muted">${pred.info.description}</p>
+                            
+                            <div class="d-flex align-items-center mb-2">
+                                <small class="me-2">Confidence:</small>
+                                <div class="progress flex-grow-1" style="height: 20px;">
+                                    <div class="progress-bar" role="progressbar" 
+                                         style="width: ${confidencePercent}%" 
+                                         aria-valuenow="${confidencePercent}" 
+                                         aria-valuemin="0" 
+                                         aria-valuemax="100">
+                                        ${confidencePercent}%
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="alert alert-${pred.info.severity === 'High' ? 'danger' : pred.info.severity === 'Moderate' ? 'warning' : 'info'}">
+                                <strong>Severity:</strong> ${pred.info.severity}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            const topPred = data.predictions[0];
+            document.getElementById('recommendationsContainer').innerHTML = `
+                <h5 class="mt-3">Treatment Recommendations</h5>
+                <ul class="list-group list-group-flush mb-3">
+                    ${topPred.info.recommendations.map(rec => `
+                        <li class="list-group-item">
+                            <i class="fas fa-check-circle text-success me-2"></i>${rec}
+                        </li>
+                    `).join('')}
+                </ul>
+                
+                <h5>Suggested Fertilizers</h5>
+                <div class="d-flex flex-wrap gap-2">
+                    ${topPred.info.fertilizers.map(fert => `
+                        <span class="badge bg-success">${fert}</span>
+                    `).join('')}
+                </div>
+            `;
+            
+            document.getElementById('resultsContainer').style.display = 'block';
+        }
+       
+        document.getElementById('weatherForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const city = document.getElementById('cityInput').value.trim();
+            if (!city) return;
+            
+            document.getElementById('weatherResult').style.display = 'none';
+            
+            try {
+                const response = await fetch('/weather', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `city=${encodeURIComponent(city)}`
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                document.getElementById('weatherCity').textContent = data.city;
+                document.getElementById('weatherTemp').textContent = `${data.temp}°C`;
+                document.getElementById('weatherDesc').textContent = data.conditions;
+                document.getElementById('weatherHumidity').textContent = data.humidity;
+                document.getElementById('weatherIcon').src = `https://openweathermap.org/img/wn/${data.icon}@2x.png`;
+                document.getElementById('weatherResult').style.display = 'block';
+                
+            } catch (error) {
+                alert(`Weather error: ${error.message}`);
+            }
+        });
+    </script>
+
+<!-- new  -->
+    <div class="card h-100 mt-4">
+  <div class="card-body">
+    <h3 class="card-title">
+      <i class="fas fa-video text-danger me-2"></i>Video Disease Detection
+    </h3>
+
+    <input type="file" id="videoInput" accept="video/*" class="form-control mb-3">
+
+    <div id="videoResultsContainer" style="display: none;">
+      <h4 class="mb-3">Video Detection Result</h4>
+      <div id="videoPrediction"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById('videoInput').addEventListener('change', async function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        const response = await fetch('/predict_video', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+
+        if (data.error) throw new Error(data.error);
+
+        document.getElementById('videoPrediction').innerHTML = `
+            <div class="alert alert-success">
+                Final Predicted Disease: <strong>${data.final_prediction}</strong>
+            </div>
+        `;
+        document.getElementById('videoResultsContainer').style.display = 'block';
+    } catch (error) {
+        alert('Video prediction error: ' + error.message);
+    }
+});
+</script>
+<!-- Live Camera Capture -->
+<div class="card h-100 mt-4">
+  <div class="card-body text-center">
+    <h3 class="card-title">
+      <i class="fas fa-camera text-primary me-2"></i>Live Camera Detection
+    </h3>
+
+    <video id="cameraStream" autoplay playsinline class="w-100 rounded mb-3" style="max-height: 300px;"></video>
+    <button class="btn btn-success" id="captureBtn">Capture & Analyze</button>
+
+    <canvas id="snapshotCanvas" class="d-none"></canvas>
+
+    <div id="cameraResultsContainer" style="display: none;" class="mt-3">
+      <h4>Live Detection Result</h4>
+      <div id="cameraPrediction"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+async function startCamera() {
+  const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+  document.getElementById('cameraStream').srcObject = stream;
+}
+
+document.getElementById('captureBtn').addEventListener('click', async () => {
+  const video = document.getElementById('cameraStream');
+  const canvas = document.getElementById('snapshotCanvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+  canvas.toBlob(async (blob) => {
+    const formData = new FormData();
+    formData.append('file', blob, 'snapshot.png');
+
+    try {
+      const response = await fetch('/predict', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await response.json();
+
+      if (data.error) throw new Error(data.error);
+
+      document.getElementById('cameraPrediction').innerHTML = `
+        <div class="alert alert-info">
+          Predicted Disease: <strong>${data.predictions[0].name}</strong>
+        </div>
+      `;
+      document.getElementById('cameraResultsContainer').style.display = 'block';
+    } catch (err) {
+      alert('Camera prediction error: ' + err.message);
+    }
+  }, 'image/png');
+});
+
+startCamera();
+</script>
+
+
+</body>
+</html>
